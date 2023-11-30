@@ -1,0 +1,84 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.2.0'
+    id 'io.spring.dependency-management' version '1.1.4'
+    id 'maven-publish'
+    id 'java-library'
+}
+
+group = 'com.crossangle'
+version = '0.0.1-SNAPSHOT'
+def nexus_user = 'testUser'
+def nexus_pw = 'test'
+
+java {
+    sourceCompatibility = '17'
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    maven {
+        url = uri("http://nexus.dev.internal.crossangle.com:8081/repository/xangle-group/")
+        credentials {
+            username nexus_user
+            password nexus_pw
+        }
+        allowInsecureProtocol = true
+    }
+}
+
+dependencies {
+    implementation 'com.crossangle:token:0.0.2'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    compileOnly 'org.projectlombok:lombok'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    annotationProcessor 'org.projectlombok:lombok'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+bootJar.enabled=false
+jar.enabled=true
+
+jar {
+    from sourceSets.main.output
+    // main class 및 controller는 배포에 필요없기떄문에 포함하지 않는다.
+    exclude 'com/crossangle/cmc/CmcLibraryApplication.class'
+    exclude 'com/crossangle/cmc/controller/**'
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            versionMapping {
+                usage('java-api') {
+                    fromResolutionOf('runtimeClasspath')
+                }
+                usage('java-runtime') {
+                    fromResolutionResult()
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            def releasesRepoUrl = uri("http://nexus.dev.internal.crossangle.com:8081/repository/xangle-release/")
+            def snapshotsRepoUrl = uri("http://nexus.dev.internal.crossangle.com:8081/repository/xangle-snapshot/")
+            url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+            credentials {
+                username nexus_user
+                password nexus_pw
+            }
+            allowInsecureProtocol = true
+        }
+    }
+}
